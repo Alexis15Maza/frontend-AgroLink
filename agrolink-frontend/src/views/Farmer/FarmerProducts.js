@@ -88,10 +88,10 @@ const mapearResponseACrop = (c) => ({
   cantidadTotal: c.cantidadEstimada
     ? `${c.cantidadEstimada} ${c.unidad || "Kg"}`
     : "---",
-  cantidadDisponible: c.cantidadDisponible
+  cantidadDisponible: c.cantidadDisponible != null
     ? `${c.cantidadDisponible} ${c.unidad || "Kg"}`
     : "---",
-  stockTotalRestante: c.stockTotalRestante
+  stockTotalRestante: c.stockTotalRestante != null
     ? `${c.stockTotalRestante} ${c.unidad || "Kg"}`
     : "---",
   fechaSiembra: c.fechaSiembra,
