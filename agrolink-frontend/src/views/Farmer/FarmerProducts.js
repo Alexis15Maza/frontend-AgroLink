@@ -91,6 +91,9 @@ const mapearResponseACrop = (c) => ({
   cantidadDisponible: c.cantidadDisponible
     ? `${c.cantidadDisponible} ${c.unidad || "Kg"}`
     : "---",
+  stockTotalRestante: c.stockTotalRestante
+    ? `${c.stockTotalRestante} ${c.unidad || "Kg"}`
+    : "---",
   fechaSiembra: c.fechaSiembra,
   precio: c.precio ? c.precio.toString() : "0",
   minimoVenta: c.minimoVenta ? `${c.minimoVenta} Kg` : "0 Kg",
@@ -1763,10 +1766,9 @@ function FarmerProducts() {
                   marginTop: 0,
                 }}
               >
-                Stock disponible actual:{" "}
-                <strong style={{ color: "#F57F17" }}>
-                  {editingCrop.cantidadDisponible}
-                </strong>
+                Disponible: <strong style={{ color: "#F57F17" }}>{editingCrop.cantidadDisponible}</strong>
+                {" · "}
+                Máximo a reportar: <strong style={{ color: "#F57F17" }}>{editingCrop.stockTotalRestante}</strong>
               </p>
 
               <div style={{ marginBottom: "12px" }}>
