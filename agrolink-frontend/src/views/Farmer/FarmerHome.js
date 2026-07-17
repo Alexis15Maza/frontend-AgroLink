@@ -1,17 +1,21 @@
 import React, { useState } from "react";
 import { Routes, Route, Link, useLocation } from "react-router-dom";
+import { useUnreadCount } from "../../hooks/useUnreadCount";
 
 // Importamos las sub-vistas
 import FarmerDashboard from "./FarmerDashboard";
 import FarmerProducts from "./FarmerProducts";
 import FarmerSales from "./FarmerSales";
 import FarmerProfile from "./FarmerProfile";
+import FarmerNotifications from "./FarmerNotifications";
 import FarmerCatalog from "./FarmerCatalog";
 import { logout } from '../../api/authService';
+
 
 function FarmerHome() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const unreadCount = useUnreadCount('agricultor');
 
   // Función auxiliar para determinar si un enlace está activo
   const isActive = (path) => {
@@ -111,6 +115,22 @@ function FarmerHome() {
           <Link to="/farmer/sales" style={linkStyle("/farmer/sales")} onClick={() => setIsMobileMenuOpen(false)}>
             💰 Mis Ventas
           </Link>
+          <Link to="/farmer/notifications" style={linkStyle("/farmer/notifications")} onClick={() => setIsMobileMenuOpen(false)}>
+            🔔 Notificaciones
+            {unreadCount > 0 && (
+                <span style={{
+                    backgroundColor: '#d32f2f',
+                    color: 'white',
+                    fontSize: '0.75rem',
+                    padding: '2px 7px',
+                    borderRadius: '10px',
+                    fontWeight: 'bold',
+                    marginLeft: '8px'
+                }}>
+                    {unreadCount}
+                </span>
+            )}
+        </Link>
           <Link to="/farmer/profile" style={linkStyle("/farmer/profile")} onClick={() => setIsMobileMenuOpen(false)}>
             👤 Mi Perfil
           </Link>
@@ -141,6 +161,7 @@ function FarmerHome() {
           <Route path="products" element={<FarmerProducts />} />
           <Route path="catalog" element={<FarmerCatalog />} />
           <Route path="sales" element={<FarmerSales />} />
+          <Route path="notifications" element={<FarmerNotifications />} />
           <Route path="profile" element={<FarmerProfile />} />
         </Routes>
       </main>

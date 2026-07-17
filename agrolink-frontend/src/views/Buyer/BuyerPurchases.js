@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { obtenerMisCompras, exportarComprasExcel } from '../../api/compradorService';
+import TrazabilidadCompleta from "../../components/TrazabilidadCompleta";
 
 function BuyerPurchases() {
   const [orders, setOrders] = useState([]);
@@ -7,6 +8,7 @@ function BuyerPurchases() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [exportStatus, setExportStatus] = useState("idle");
+  const [trazabilidadCropId, setTrazabilidadCropId] = useState(null);
 
   useEffect(() => {
     const cargarCompras = async () => {
@@ -281,6 +283,7 @@ function BuyerPurchases() {
               </span>
             </div>
 
+
             <div style={{ marginBottom: "20px" }}>
               <span
                 style={{
@@ -398,6 +401,12 @@ function BuyerPurchases() {
                       </span>
                       <strong>📍 {detalle.direccion}</strong>
                     </div>
+                    <button
+                      onClick={() => setTrazabilidadCropId(detalle.idCultivo)}
+                      style={{ marginTop: '10px', backgroundColor: 'transparent', border: '1px solid var(--color-primary)', color: 'var(--color-primary)', padding: '8px 15px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', gridColumn: '1 / -1' }}
+                  >
+                      🔍 Ver Trazabilidad
+                  </button>
                   </div>
                 </div>
               ))}
@@ -426,6 +435,9 @@ function BuyerPurchases() {
             </div>
           </div>
         </div>
+      )}
+      {trazabilidadCropId && (
+        <TrazabilidadCompleta cultivoId={trazabilidadCropId} onClose={() => setTrazabilidadCropId(null)} />
       )}
     </div>
   );

@@ -9,7 +9,9 @@ import {
   registrarMerma,
 } from "../../api/agricultorService";
 
-import CultivoTimeline from "./Cultivotimeline"
+import TrazabilidadCompleta from "../../components/TrazabilidadCompleta";
+
+
 
 // --- Funciones Auxiliares ---
 const addDaysToDate = (dateStr, days) => {
@@ -124,6 +126,8 @@ function FarmerProducts() {
   const [productos, setProductos] = useState([]);
   const [variedades, setVariedades] = useState([]);
   const [loadingVariedades, setLoadingVariedades] = useState(false);
+  const [trazabilidadCropId, setTrazabilidadCropId] = useState(null);
+  
 
   const [mermaData, setMermaData] = useState({
     cantidadPerdida: "",
@@ -1894,16 +1898,15 @@ function FarmerProducts() {
               </button>
             </div>
           </div>
-          {/* LÍNEA DE TIEMPO */}
-          <div style={{
-              borderTop: '2px solid #eee',
-              marginTop: '20px'
-          }}>
-              <CultivoTimeline
-                  cultivoId={editingCrop.id}
-                  cultivoNombre={editingCrop.nombre}
-              />
-          </div>
+
+          <div style={{ padding: '0 20px 20px 20px' }}>
+            <button
+                onClick={() => setTrazabilidadCropId(editingCrop.id)}
+                style={{ width: '100%', backgroundColor: 'var(--color-secondary)', color: 'white', border: 'none', padding: '12px', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+                🔍 Ver Trazabilidad Completa
+            </button>
+        </div>
           <div className="farmer-modal-actions">
             <button
               onClick={() => setEditingCrop(null)}
@@ -1944,9 +1947,12 @@ function FarmerProducts() {
 
   return (
     <div style={{ position: "relative", width: "100%" }}>
-      {isFormVisible ? renderFormView() : renderListView()}
-      {renderEditModal()}
-    </div>
+        {isFormVisible ? renderFormView() : renderListView()}
+        {renderEditModal()}
+        {trazabilidadCropId && (
+            <TrazabilidadCompleta cultivoId={trazabilidadCropId} onClose={() => setTrazabilidadCropId(null)} />
+        )}
+      </div>
   );
 }
 

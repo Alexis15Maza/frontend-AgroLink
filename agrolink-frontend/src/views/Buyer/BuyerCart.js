@@ -14,6 +14,9 @@ function BuyerCart() {
         return [];
     });
 
+    const [gatewayModal, setGatewayModal] = useState(false);
+    const [processingPayment, setProcessingPayment] = useState(false);
+    const [cardData, setCardData] = useState({ numero: '', vencimiento: '', cvv: '', titular: '' });
     const [paymentModal, setPaymentModal] = useState(false);
     const [paymentSummary, setPaymentSummary] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -32,97 +35,150 @@ function BuyerCart() {
     const itemsSeleccionados = cartItems.filter(i => i.seleccionado);
     const totalPagar = itemsSeleccionados.reduce((acc, curr) => acc + curr.montoTotal, 0);
     const totalAdelanto = itemsSeleccionados.reduce((acc, curr) => acc + (curr.montoTotal * (curr.porcentajeAdelanto / 100)), 0);
-
-    const handleGenerateOrder = async () => {
+    const metodoActivo = itemsSeleccionados[0]?.metodoPago; 
+    
+    const handleGenerateOrder = () => {
         if (itemsSeleccionados.length === 0) {
             alert("Selecciona al menos un producto.");
             return;
         }
 
-        setLoading(true);
-        setError(null);
+        const metodosUnicos = [...new Set(itemsSeleccionados.map(i => i.metodoPago))];
+        if (metodosUnicos.length > 1) {
+            alert("No puedes pagar en un mismo pedido productos con métodos de pago distintos. Selecciona solo los que compartan el mismo método.");
+            return;
+        }
 
-        // Armar el DTO que espera el backend
-        const pedidoPayload = {
-            items: itemsSeleccionados.map(item => ({
-                cultivoId: item.idCultivo || item.cultivoId,
-                cantidad: parseFloat(item.cantidad),
-                precioPactado: parseFloat(item.precio),
-                direccionEntrega: item.direccionEntrega || 'Almacén Av. Industrial 1250, Callao'
-            }))
+        setError(null);
+        setGatewayModal(true);
+    };
+
+    const handleConfirmarPago = async () => {
+
+    if (metodoActivo === 'Transferencia Bancaria') {
+        const numeroLimpio = cardData.numero.replace(/\s/g, '');
+        if (!cardData.titular.trim()) {
+            alert("Ingresa el nombre del titular.");
+            return;
+        }
+        if (numeroLimpio.length !== 16) {
+            alert("El número de tarjeta debe tener 16 dígitos.");
+            return;
+        }
+        if (!/^\d{2}\/\d{2}$/.test(cardData.vencimiento)) {
+            alert("La fecha de vencimiento debe tener el formato MM/AA.");
+            return;
+        }
+        if (cardData.cvv.length < 3) {
+            alert("El CVV debe tener al menos 3 dígitos.");
+            return;
+        }
+    }
+
+    if (metodoActivo === 'Depósito en Efectivo') {
+        if (!cardData.numeroOperacion?.trim()) {
+            alert("Ingresa el número de operación del depósito.");
+            return;
+        }
+    }
+
+    // Crédito Comercial 30 días no requiere validación de datos, solo confirmar
+
+    setProcessingPayment(true);
+    setError(null);
+
+    const pedidoPayload = {
+        items: itemsSeleccionados.map(item => ({
+            cultivoId: item.idCultivo || item.cultivoId,
+            cantidad: parseFloat(item.cantidad),
+            precioPactado: parseFloat(item.precio),
+            direccionEntrega: item.direccionEntrega,
+            metodoPago: item.metodoPago,                   
+            porcentajeAdelanto: parseInt(item.porcentajeAdelanto) 
+        }))
+    };
+
+    try {
+        // Simulación de procesamiento de pago (visual, no real)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        const respuesta = await crearPedido(pedidoPayload);
+
+        const defaultDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString('es-PE');
+        const getItemDate = (item) => {
+            if (item.fechaEntregaEstimada) {
+                const d = new Date(item.fechaEntregaEstimada);
+                return isNaN(d) ? defaultDate : d.toLocaleDateString('es-PE');
+            }
+            return defaultDate;
         };
 
-        try {
-            const respuesta = await crearPedido(pedidoPayload);
+        const uniqueAddresses = [...new Set(itemsSeleccionados.map(i => i.direccionEntrega || 'Sin especificar'))];
+        const headerAddress = uniqueAddresses.length === 1 ? uniqueAddresses[0] : 'Múltiples destinos (ver en lista de productos)';
+        const uniqueDates = [...new Set(itemsSeleccionados.map(i => getItemDate(i)))];
+        const headerDate = uniqueDates.length === 1 ? uniqueDates[0] : 'Múltiples fechas de entrega';
 
-            // Construir resumen para el modal de confirmación
-            const defaultDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString('es-PE');
-            const getItemDate = (item) => {
-                if (item.fechaEntregaEstimada) {
-                    const d = new Date(item.fechaEntregaEstimada);
-                    return isNaN(d) ? defaultDate : d.toLocaleDateString('es-PE');
-                }
-                return defaultDate;
-            };
+        const summary = {
+            id: respuesta.id || respuesta.pedidoId || `PED-${Date.now().toString().slice(-4)}`,
+            fecha: new Date().toLocaleDateString('es-PE'),
+            fechaEntregaEstimada: headerDate,
+            items: itemsSeleccionados,
+            total: totalPagar,
+            adelanto: totalAdelanto,
+            contraEntrega: totalPagar - totalAdelanto
+        };
 
-            const uniqueAddresses = [...new Set(itemsSeleccionados.map(i => i.direccionEntrega || 'Sin especificar'))];
-            const headerAddress = uniqueAddresses.length === 1 ? uniqueAddresses[0] : 'Múltiples destinos (ver en lista de productos)';
+        const savedOrders = JSON.parse(localStorage.getItem('agrolink_orders') || '[]');
+        const newOrder = {
+            id: summary.id,
+            fecha: summary.fecha,
+            fechaEntregaEstimada: headerDate,
+            estado: 'Pendiente',
+            metodoPago: itemsSeleccionados[0].metodoPago,
+            direccionEntrega: headerAddress,
+            productos: itemsSeleccionados.map(item => ({
+                cultivoId: item.idCultivo || item.cultivoId,
+                nombre: item.nombre,
+                imagen: item.imagen,
+                cantidad: `${item.cantidad} Kg`,
+                loteParcial: item.loteParcial || `LP-${Math.floor(Math.random() * 1000)}`,
+                agricultor: item.agricultor,
+                adelanto: item.porcentajeAdelanto,
+                precio: item.precio,
+                montoTotal: item.montoTotal,
+                montoAdelanto: `S/ ${(item.montoTotal * (item.porcentajeAdelanto / 100)).toFixed(2)}`,
+                montoPendiente: `S/ ${(item.montoTotal * ((100 - item.porcentajeAdelanto) / 100)).toFixed(2)}`,
+                direccionEntrega: item.direccionEntrega,
+                fechaEntregaEstimada: getItemDate(item),
+                metodoPago: item.metodoPago,
+                detallesProducto: item.detallesProducto || null
+            })),
+            total: `S/ ${totalPagar.toFixed(2)}`
+        };
+        localStorage.setItem('agrolink_orders', JSON.stringify([newOrder, ...savedOrders]));
 
-            const uniqueDates = [...new Set(itemsSeleccionados.map(i => getItemDate(i)))];
-            const headerDate = uniqueDates.length === 1 ? uniqueDates[0] : 'Múltiples fechas de entrega';
+        setCartItems(cartItems.filter(item => !item.seleccionado));
+        setGatewayModal(false);
+        setCardData({ numero: '', vencimiento: '', cvv: '', titular: '' });
+        setPaymentSummary(summary);
+        setPaymentModal(true);
 
-            const summary = {
-                id: respuesta.id || respuesta.pedidoId || `PED-${Date.now().toString().slice(-4)}`,
-                fecha: new Date().toLocaleDateString('es-PE'),
-                fechaEntregaEstimada: headerDate,
-                items: itemsSeleccionados,
-                total: totalPagar,
-                adelanto: totalAdelanto,
-                contraEntrega: totalPagar - totalAdelanto
-            };
+    } catch (err) {
+        console.error('Error al crear pedido:', err);
+        setGatewayModal(false);
 
-            // Guardar en localStorage para BuyerPurchases
-            const savedOrders = JSON.parse(localStorage.getItem('agrolink_orders') || '[]');
-            const newOrder = {
-                id: summary.id,
-                fecha: summary.fecha,
-                fechaEntregaEstimada: headerDate,
-                estado: 'Pendiente',
-                metodoPago: itemsSeleccionados[0].metodoPago,
-                direccionEntrega: headerAddress,
-                productos: itemsSeleccionados.map(item => ({
-                    cultivoId: item.idCultivo || item.cultivoId,
-                    nombre: item.nombre,
-                    imagen: item.imagen,
-                    cantidad: `${item.cantidad} Kg`,
-                    loteParcial: item.loteParcial || `LP-${Math.floor(Math.random() * 1000)}`,
-                    agricultor: item.agricultor,
-                    adelanto: item.porcentajeAdelanto,
-                    precio: item.precio,
-                    montoTotal: item.montoTotal,
-                    montoAdelanto: `S/ ${(item.montoTotal * (item.porcentajeAdelanto / 100)).toFixed(2)}`,
-                    montoPendiente: `S/ ${(item.montoTotal * ((100 - item.porcentajeAdelanto) / 100)).toFixed(2)}`,
-                    direccionEntrega: item.direccionEntrega || 'Almacén Av. Industrial 1250, Callao',
-                    fechaEntregaEstimada: getItemDate(item),
-                    metodoPago: item.metodoPago,
-                    detallesProducto: item.detallesProducto || null
-                })),
-                total: `S/ ${totalPagar.toFixed(2)}`
-            };
-            localStorage.setItem('agrolink_orders', JSON.stringify([newOrder, ...savedOrders]));
-
-            // Quitar del carrito los items procesados
-            setCartItems(cartItems.filter(item => !item.seleccionado));
-            setPaymentSummary(summary);
-            setPaymentModal(true);
-
-        } catch (err) {
-            console.error('Error al crear pedido:', err);
+        const data = err.response?.data;
+        if (data && typeof data === 'object' && data.stockDisponible !== undefined) {
+            setError(`No hay suficiente stock de "${data.nombreProducto}". Cantidad de stock actual: ${data.stockDisponible} ${data.unidad || ''}`);
+        } else if (typeof data === 'string') {
+            setError(data);
+        } else {
             setError('Hubo un error al procesar tu pedido. Por favor intenta de nuevo.');
-        } finally {
-            setLoading(false);
         }
-    };
+    } finally {
+        setProcessingPayment(false);
+    }
+};
 
     return (
         <div>
@@ -207,6 +263,109 @@ function BuyerCart() {
                 )}
             </div>
 
+            {/* MODAL DE PAGO */}
+            {gatewayModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '450px', position: 'relative' }}>
+                        {!processingPayment ? (
+    <>
+        <h2 style={{ color: 'var(--color-primary)', textAlign: 'center', margin: '0 0 5px 0' }}>
+            {metodoActivo === 'Transferencia Bancaria' && '🏦 Transferencia Bancaria'}
+            {metodoActivo === 'Depósito en Efectivo' && '💵 Depósito en Efectivo'}
+            {metodoActivo === 'Crédito Comercial 30 días' && '📄 Crédito Comercial'}
+        </h2>
+        <p style={{ textAlign: 'center', color: '#888', fontSize: '0.9rem', marginBottom: '25px' }}>
+            {metodoActivo === 'Transferencia Bancaria' && 'Ingresa los datos de tu tarjeta o cuenta de origen'}
+            {metodoActivo === 'Depósito en Efectivo' && 'Sube el comprobante de tu depósito'}
+            {metodoActivo === 'Crédito Comercial 30 días' && 'Confirma las condiciones del crédito'}
+        </p>
+
+        <div style={{ backgroundColor: '#F1F8F5', padding: '15px', borderRadius: 'var(--radius-md)', marginBottom: '20px', textAlign: 'center' }}>
+            <span style={{ color: '#666', fontSize: '0.9rem' }}>
+                {metodoActivo === 'Crédito Comercial 30 días' ? 'Total del pedido' : 'Total a pagar ahora'}
+            </span><br />
+            <strong style={{ fontSize: '1.6rem', color: 'var(--color-secondary)' }}>
+                S/ {metodoActivo === 'Crédito Comercial 30 días' ? totalPagar.toFixed(2) : totalAdelanto.toFixed(2)}
+            </strong>
+        </div>
+
+        {/* --- TRANSFERENCIA BANCARIA: formulario de tarjeta --- */}
+        {metodoActivo === 'Transferencia Bancaria' && (
+            <>
+                <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Titular de la tarjeta</label>
+                    <input type="text" value={cardData.titular} onChange={(e) => {
+                        const soloLetras = e.target.value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '');
+                        setCardData({ ...cardData, titular: soloLetras });
+                    }} placeholder="Nombre como aparece en la tarjeta" style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid #ccc', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Número de tarjeta</label>
+                    <input type="text" inputMode="numeric" value={cardData.numero} onChange={(e) => {
+                        const soloDigitos = e.target.value.replace(/\D/g, '').slice(0, 16);
+                        setCardData({ ...cardData, numero: soloDigitos.replace(/(.{4})/g, '$1 ').trim() });
+                    }} placeholder="1234 5678 9012 3456" maxLength={19} style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid #ccc', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '15px', marginBottom: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Vencimiento</label>
+                        <input type="text" inputMode="numeric" value={cardData.vencimiento} onChange={(e) => {
+                            let d = e.target.value.replace(/\D/g, '').slice(0, 4);
+                            if (d.length >= 3) d = d.slice(0, 2) + '/' + d.slice(2);
+                            setCardData({ ...cardData, vencimiento: d });
+                        }} placeholder="MM/AA" maxLength={5} style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid #ccc', boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>CVV</label>
+                        <input type="text" inputMode="numeric" value={cardData.cvv} onChange={(e) => {
+                            setCardData({ ...cardData, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) });
+                        }} placeholder="123" maxLength={4} style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid #ccc', boxSizing: 'border-box' }} />
+                    </div>
+                </div>
+            </>
+        )}
+
+        {/* --- DEPÓSITO EN EFECTIVO: número de operación --- */}
+        {metodoActivo === 'Depósito en Efectivo' && (
+            <div style={{ marginBottom: '10px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>N° de operación / voucher</label>
+                <input type="text" value={cardData.numeroOperacion || ''} onChange={(e) => {
+                    setCardData({ ...cardData, numeroOperacion: e.target.value.replace(/[^a-zA-Z0-9-]/g, '') });
+                }} placeholder="Ej. OP-4587921" style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid #ccc', boxSizing: 'border-box' }} />
+                <p style={{ fontSize: '0.85rem', color: '#888', marginTop: '8px' }}>
+                    Ingresa el número de operación del depósito realizado a la cuenta de AgroLink.
+                </p>
+            </div>
+        )}
+
+        {/* --- CRÉDITO COMERCIAL: solo confirmación, sin datos financieros --- */}
+        {metodoActivo === 'Crédito Comercial 30 días' && (
+            <div style={{ backgroundColor: '#FFF8E1', border: '1px solid #ffe082', borderRadius: 'var(--radius-md)', padding: '15px', marginBottom: '10px' }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: '#795548' }}>
+                    Al confirmar, aceptas pagar el total de <strong>S/ {totalPagar.toFixed(2)}</strong> dentro de los
+                    <strong> 30 días</strong> posteriores a la entrega del pedido.
+                </p>
+            </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+            <button onClick={() => setGatewayModal(false)} style={{ flex: 1, background: 'transparent', border: '1px solid #ccc', padding: '12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+            <button onClick={handleConfirmarPago} style={{ flex: 2, backgroundColor: 'var(--color-primary)', color: 'white', border: 'none', padding: '12px', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer' }}>
+                {metodoActivo === 'Crédito Comercial 30 días' ? 'Confirmar Pedido' : `Pagar S/ ${(metodoActivo === 'Depósito en Efectivo' ? totalAdelanto : totalAdelanto).toFixed(2)}`}
+            </button>
+        </div>
+    </>
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>⏳</div>
+                                <p style={{ color: '#555', fontWeight: 'bold' }}>
+                                    {metodoActivo === 'Crédito Comercial 30 días' ? 'Registrando tu pedido...' : 'Procesando tu pago...'}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
             {/* MODAL CONFIRMACIÓN */}
             {paymentModal && paymentSummary && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>

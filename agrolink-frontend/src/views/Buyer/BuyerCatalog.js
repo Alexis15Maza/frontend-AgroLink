@@ -100,7 +100,7 @@ function BuyerCatalog({ acquiredIds, onAddToCart }) {
         const newItem = {
             id: `CART-${Date.now()}`,
             idCultivo: selectedCrop.id,
-            nombre: selectedCrop.productoVariedad?.nombreProductosVariedad,
+            nombre: `${selectedCrop.productoVariedad?.producto?.nombre ?? ''}  ${selectedCrop.productoVariedad?.nombreProductosVariedad ?? ''}`,
             lote: selectedCrop.lote,
             cantidad: purchaseData.cantidad,
             precio: precio,
@@ -115,7 +115,7 @@ function BuyerCatalog({ acquiredIds, onAddToCart }) {
 
         setCartItems([...cartItems, newItem]);
         if (onAddToCart) onAddToCart(selectedCrop.id);
-        alert(`¡${selectedCrop.productoVariedad?.nombreProductosVariedad} añadido al carrito!`);
+        alert(`¡${selectedCrop.productoVariedad?.producto?.nombre}  ${selectedCrop.productoVariedad?.nombreProductosVariedad} añadido al carrito!`);
         handleCloseModal();
     };
 
@@ -154,7 +154,9 @@ function BuyerCatalog({ acquiredIds, onAddToCart }) {
                             <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                 <div>
                                     <div style={{ color: '#888', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px' }}>LOTE: {crop.lote}</div>
-                                    <h3 style={{ margin: '0 0 12px 0', color: 'var(--color-text)', fontSize: '1.25rem' }}>{crop.productoVariedad?.nombreProductosVariedad}</h3>
+                                    <h3 style={{ margin: '0 0 12px 0', color: 'var(--color-text)', fontSize: '1.25rem' }}>
+                                        {crop.productoVariedad?.producto?.nombre}  {crop.productoVariedad?.nombreProductosVariedad}
+                                    </h3>
                                 </div>
                                 <div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem' }}>
@@ -168,7 +170,7 @@ function BuyerCatalog({ acquiredIds, onAddToCart }) {
                                     <button
                                         onClick={() => {
                                             setSelectedCrop(crop);
-                                            setPurchaseData(prev => ({ ...prev, direccionEntrega: getProfileAddress() }));
+                                            setPurchaseData(prev => ({ ...prev, direccionEntrega: '' }));
                                         }}
                                         style={{ width: '100%', backgroundColor: 'var(--color-primary)', color: 'white', border: 'none', padding: '12px', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer' }}
                                     >
@@ -204,7 +206,9 @@ function BuyerCatalog({ acquiredIds, onAddToCart }) {
                     <div className="buyer-modal-container" style={{ backgroundColor: 'white', padding: '40px', borderRadius: 'var(--radius-lg)' }}>
                         <button onClick={handleCloseModal} style={{ position: 'absolute', top: '15px', right: '20px', background: 'transparent', border: 'none', fontSize: '1.8rem', color: '#888', cursor: 'pointer' }}>&times;</button>
 
-                        <h3 style={{ color: 'var(--color-primary)', margin: '0 0 20px 0', fontSize: '1.6rem' }}>{selectedCrop.productoVariedad?.nombreProductosVariedad}</h3>
+                        <h3 style={{ color: 'var(--color-primary)', margin: '0 0 20px 0', fontSize: '1.6rem' }}>
+                            {selectedCrop.productoVariedad?.producto?.nombre}  {selectedCrop.productoVariedad?.nombreProductosVariedad}
+                        </h3>
 
                         <div className="buyer-modal-details-grid" style={{ backgroundColor: '#F1F8F5', padding: '18px', borderRadius: 'var(--radius-md)' }}>
                             <div>
@@ -232,7 +236,13 @@ function BuyerCatalog({ acquiredIds, onAddToCart }) {
 
                         <div style={{ marginBottom: '20px' }}>
                             <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Dirección de Entrega</label>
-                            <input type="text" value={purchaseData.direccionEntrega} onChange={(e) => setPurchaseData({ ...purchaseData, direccionEntrega: e.target.value })} style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid #ccc', fontSize: '1rem', boxSizing: 'border-box' }} />
+                            <input
+                            type="text"
+                            value={purchaseData.direccionEntrega}
+                            onChange={(e) => setPurchaseData({ ...purchaseData, direccionEntrega: e.target.value })}
+                            placeholder={getProfileAddress()}
+                            style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid #ccc', fontSize: '1rem', boxSizing: 'border-box' }}
+                        />
                         </div>
 
                         <div className="buyer-modal-fields-grid">

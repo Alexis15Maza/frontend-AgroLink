@@ -218,6 +218,19 @@ function FarmerSales() {
                                         {selectedSale.costo}
                                     </span>
                                 </p>
+                                <p style={{ margin: "0 0 15px 0" }}>
+                                    <strong style={{ color: "#555" }}>Método de Pago:</strong><br />
+                                    <span style={{ fontSize: "1.1rem", color: "#333" }}>{selectedSale.metodoPago}</span>
+                                </p>
+                                {selectedSale.porcentajeAdelanto > 0 && (
+                                    <p style={{ margin: "0 0 15px 0" }}>
+                                        <strong style={{ color: "#555" }}>Adelanto ({selectedSale.porcentajeAdelanto}%):</strong><br />
+                                        <span style={{ fontSize: "1.1rem", color: "#2E7D32", fontWeight: "bold" }}>{selectedSale.montoAdelanto}</span>
+                                        <span style={{ fontSize: "0.9rem", color: "#d32f2f", marginLeft: "10px" }}>
+                                            (Contraentrega: {selectedSale.montoContraentrega})
+                                        </span>
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <p style={{ margin: "0 0 15px 0" }}>
