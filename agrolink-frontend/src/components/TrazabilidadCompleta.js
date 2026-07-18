@@ -8,7 +8,7 @@ const formatDate = (dateStr) => {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
-function TrazabilidadCompleta({ cultivoId, onClose }) {
+function TrazabilidadCompleta({ cultivoId, rol, idPedidoActual, onClose }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -160,26 +160,35 @@ function TrazabilidadCompleta({ cultivoId, onClose }) {
                         </div>
 
                         {/* PEDIDOS VINCULADOS */}
-                        <div style={{ marginBottom: '10px' }}>
-                            <h4 style={{ color: 'var(--color-secondary)', marginBottom: '12px' }}>📦 Pedidos Vinculados</h4>
-                            {data.pedidosVinculados.length === 0 ? (
-                                <p style={{ color: '#888', fontSize: '0.9rem' }}>Sin pedidos registrados para este cultivo.</p>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {data.pedidosVinculados.map((p, idx) => (
-                                        <div key={idx} style={{ backgroundColor: '#F8F9FA', border: '1px solid #eee', borderRadius: 'var(--radius-md)', padding: '12px 15px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '5px' }}>
-                                                <strong style={{ color: 'var(--color-primary)' }}>Pedido #{p.idPedido}</strong>
-                                                <span style={{ fontSize: '0.85rem', color: '#888' }}>{new Date(p.fechaCreacion).toLocaleDateString('es-PE')}</span>
-                                            </div>
-                                            <div style={{ fontSize: '0.9rem', color: '#555' }}>
-                                                {p.nombreComprador} {p.nombreNegocio ? `(${p.nombreNegocio})` : ''} — {p.cantidadSolicitada} {p.unidadMedida} — Estado: <strong>{p.estadoPedido}</strong>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+<div style={{ marginBottom: '10px' }}>
+    <h4 style={{ color: 'var(--color-secondary)', marginBottom: '12px' }}>📦 Pedidos Vinculados</h4>
+    {(() => {
+        const pedidosAMostrar = rol === 'comprador'
+            ? data.pedidosVinculados.filter(p => p.idPedido === idPedidoActual)
+            : data.pedidosVinculados;
+
+        if (pedidosAMostrar.length === 0) {
+            return <p style={{ color: '#888', fontSize: '0.9rem' }}>Sin pedidos registrados para este cultivo.</p>;
+        }
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {pedidosAMostrar.map((p, idx) => (
+                    <div key={idx} style={{ backgroundColor: '#F8F9FA', border: '1px solid #eee', borderRadius: 'var(--radius-md)', padding: '12px 15px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '5px' }}>
+                            <strong style={{ color: 'var(--color-primary)' }}>Pedido #{p.idPedido}</strong>
+                            <span style={{ fontSize: '0.85rem', color: '#888' }}>{new Date(p.fechaCreacion).toLocaleDateString('es-PE')}</span>
                         </div>
+                        <div style={{ fontSize: '0.9rem', color: '#555' }}>
+                            {rol === 'agricultor' && `${p.nombreComprador} ${p.nombreNegocio ? `(${p.nombreNegocio})` : ''} — `}
+                            {p.cantidadSolicitada} {p.unidadMedida} — Estado: <strong>{p.estadoPedido}</strong>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    })()}
+</div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
                             <button onClick={handleExportarPdf} disabled={exportando} style={{ backgroundColor: '#E8F5E9', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', padding: '10px 20px', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: exportando ? 'default' : 'pointer' }}>

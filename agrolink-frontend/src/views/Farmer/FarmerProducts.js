@@ -6,6 +6,7 @@ import {
   eliminarCultivo,
   listarProductos,
   listarVariedadesPorProducto,
+  confirmarCosecha,
   registrarMerma,
 } from "../../api/agricultorService";
 
@@ -44,24 +45,21 @@ const mapearEstadoVisual = (estadoCultivo, diasTotales, fechaSiembra) => {
   const progress = Math.min(100, Math.round((daysElapsed / totalDays) * 100));
   const daysLeft = Math.max(0, totalDays - daysElapsed);
 
-      if (estadoCultivo === "Listo para cosechar") {
-        return {
-            stage: "Listo para vender",  // ← lo que muestra el front
-            progress: 100,
-            isCosechado: true,
-            daysLeft: 0,
-        };
-    } else if (estadoCultivo === "En crecimiento") {
-        return { stage: "En Crecimiento", progress, isCosechado: false, daysLeft };
-    } else {
-        // "Recién cultivado" o cualquier otro
-        return {
-            stage: "Recién Cultivado",
-            progress,
-            isCosechado: false,
-            daysLeft,
-        };
-    }
+      if (estadoCultivo === "Cosechado") {
+      return { stage: "Cosechado", progress: 100, isCosechado: true, daysLeft: 0 };
+  } else if (estadoCultivo === "Listo para cosechar") {
+      return { stage: "Listo para vender", progress: 100, isCosechado: false, daysLeft: 0 }; // <-- ojo: cambia isCosechado a false aquí, ya que "isCosechado" ahora debería significar el estado final real
+  } else if (estadoCultivo === "En crecimiento") {
+      return { stage: "En Crecimiento", progress, isCosechado: false, daysLeft };
+  } else {
+      // "Recién cultivado" o cualquier otro
+      return {
+          stage: "Recién Cultivado",
+          progress,
+          isCosechado: false,
+          daysLeft,
+      };
+  }
 };
 
 const calcularAlerta20 = (fechaSiembra, diasTotalesEstimados) => {
@@ -127,6 +125,8 @@ function FarmerProducts() {
   const [variedades, setVariedades] = useState([]);
   const [loadingVariedades, setLoadingVariedades] = useState(false);
   const [trazabilidadCropId, setTrazabilidadCropId] = useState(null);
+  const [cosechaData, setCosechaData] = useState({ volumenCosechado: "" });
+  const [confirmandoCosecha, setConfirmandoCosecha] = useState(false);
   
 
   const [mermaData, setMermaData] = useState({
@@ -184,6 +184,26 @@ function FarmerProducts() {
     setFormMode("create");
     setEditCropId(null);
     setIsFormVisible(true);
+  };
+
+  const handleConfirmarCosecha = async () => {
+    if (!cosechaData.volumenCosechado || parseFloat(cosechaData.volumenCosechado) <= 0) {
+        alert("Ingresa un volumen cosechado válido.");
+        return;
+    }
+
+    setConfirmandoCosecha(true);
+    try {
+        await confirmarCosecha(editingCrop.id, parseFloat(cosechaData.volumenCosechado));
+        alert("¡Cosecha confirmada! El cultivo ya está disponible para la venta.");
+        setCosechaData({ volumenCosechado: "" });
+        await cargarCultivos();
+        setEditingCrop(null);
+    } catch (err) {
+        alert(err.response?.data?.message || err.response?.data || "Error al confirmar la cosecha.");
+    } finally {
+        setConfirmandoCosecha(false);
+    }
   };
 
   const openFullEditForm = async (crop) => {
@@ -632,10 +652,12 @@ function FarmerProducts() {
                         }}
                       >
                         {stageData.isCosechado
-                        ? "📦 Listo"
-                        : stageData.stage === "En Crecimiento"
-                            ? "🌿 En Crecimiento"
-                            : "🌱 Recién Cultivado"}
+                        ? "📦 Cosechado"
+                        : stageData.stage === "Listo para vender"
+                            ? "🌟 Listo para Vender"
+                            : stageData.stage === "En Crecimiento"
+                                ? "🌿 En Crecimiento"
+                                : "🌱 Recién Cultivado"}
                       </div>
                     )}
                   </div>{" "}
@@ -1688,7 +1710,57 @@ function FarmerProducts() {
                 </strong>
               </div>
             </div>
+{editingCrop.estadoCultivo === "Listo para cosechar" && (
+    <div
+        style={{
+            backgroundColor: "#E8F5E9",
+            padding: "20px",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid #c8e6c9",
+        }}
+    >
+        <h4 style={{ margin: "0 0 10px 0", color: "#2E7D32" }}>
+            ✅ Confirmar Cosecha
+        </h4>
+        <p style={{ fontSize: "0.85rem", color: "#555", marginBottom: "15px" }}>
+            Este cultivo ya alcanzó su fecha estimada. Ingresa el volumen real
+            cosechado para habilitarlo en el catálogo de venta.
+        </p>
 
+        <div style={{ marginBottom: "12px" }}>
+            <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "5px", fontWeight: "500" }}>
+                Volumen Cosechado ({editingCrop.cantidadTotal?.split(" ")[1] || "Kg"})
+            </label>
+            <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={cosechaData.volumenCosechado}
+                onChange={(e) => setCosechaData({ volumenCosechado: e.target.value })}
+                placeholder={`Estimado: ${editingCrop.cantidadTotal?.split(" ")[0] || "—"}`}
+                style={{ width: "100%", padding: "8px", borderRadius: "5px", border: "1px solid #a5d6a7" }}
+            />
+        </div>
+
+        <button
+            type="button"
+            onClick={handleConfirmarCosecha}
+            disabled={confirmandoCosecha || !cosechaData.volumenCosechado}
+            style={{
+                width: "100%",
+                padding: "10px",
+                backgroundColor: confirmandoCosecha || !cosechaData.volumenCosechado ? "#ccc" : "#2E7D32",
+                color: "white",
+                border: "none",
+                borderRadius: "5px",
+                cursor: confirmandoCosecha || !cosechaData.volumenCosechado ? "default" : "pointer",
+                fontWeight: "bold",
+            }}
+        >
+            {confirmandoCosecha ? "⏳ Confirmando..." : "✅ Confirmar Cosecha y Habilitar Venta"}
+        </button>
+    </div>
+)}
             <div
               style={{
                 backgroundColor: "#FFEBEE",
@@ -1697,6 +1769,7 @@ function FarmerProducts() {
                 border: "1px solid #ffcdd2",
               }}
             >
+              
               <h4 style={{ margin: "0 0 15px 0", color: "#d32f2f" }}>
                 📢 Reportar Imprevisto
               </h4>
@@ -1950,7 +2023,7 @@ function FarmerProducts() {
         {isFormVisible ? renderFormView() : renderListView()}
         {renderEditModal()}
         {trazabilidadCropId && (
-            <TrazabilidadCompleta cultivoId={trazabilidadCropId} onClose={() => setTrazabilidadCropId(null)} />
+            <TrazabilidadCompleta cultivoId={trazabilidadCropId} rol="agricultor" onClose={() => setTrazabilidadCropId(null)} />
         )}
       </div>
   );
