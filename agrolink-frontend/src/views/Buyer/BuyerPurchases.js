@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { obtenerMisCompras, exportarComprasExcel } from '../../api/compradorService';
+import TrazabilidadCompleta from "../../components/TrazabilidadCompleta";
 
 function BuyerPurchases() {
   const [orders, setOrders] = useState([]);
@@ -7,11 +8,13 @@ function BuyerPurchases() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [exportStatus, setExportStatus] = useState("idle");
+  const [trazabilidadCropId, setTrazabilidadCropId] = useState(null);
 
   useEffect(() => {
     const cargarCompras = async () => {
       try {
         const data = await obtenerMisCompras();
+        console.log('Compras recibidas:', JSON.stringify(data, null, 2)); // <-- TEMPORAL
         setOrders(data);
       } catch (error) {
         console.error("Error al cargar compras:", error);
@@ -27,9 +30,8 @@ function BuyerPurchases() {
       String(o.id).includes(searchTerm) ||
       (o.detalles &&
         o.detalles.some((d) =>
-          (d.nombreProducto || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()),
+          (d.nombreProducto || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (d.nombreProductoVariedad || "").toLowerCase().includes(searchTerm.toLowerCase())
         )),
   );
 
@@ -206,7 +208,7 @@ function BuyerPurchases() {
                     </td>
                     <td style={{ padding: "15px", color: "#555" }}>
                       {order.detalles &&
-                        order.detalles.map((d) => d.nombreProducto).join(", ")}
+                        order.detalles.map((d) => `${d.nombreProducto} ${d.nombreProductoVariedad}`).join(", ")}
                     </td>
                     <td style={{ padding: "15px", textAlign: "center" }}>
                       <button
@@ -281,6 +283,7 @@ function BuyerPurchases() {
               </span>
             </div>
 
+
             <div style={{ marginBottom: "20px" }}>
               <span
                 style={{
@@ -322,13 +325,8 @@ function BuyerPurchases() {
                     marginBottom: "15px",
                   }}
                 >
-                  <h4
-                    style={{
-                      margin: "0 0 12px 0",
-                      color: "var(--color-primary)",
-                    }}
-                  >
-                    {detalle.nombreProducto}
+                  <h4 style={{ margin: "0 0 12px 0", color: "var(--color-primary)" }}>
+                      {detalle.nombreProducto} {detalle.nombreProductoVariedad}
                   </h4>
                   <div
                     style={{
@@ -398,6 +396,12 @@ function BuyerPurchases() {
                       </span>
                       <strong>📍 {detalle.direccion}</strong>
                     </div>
+                    <button
+                      onClick={() => setTrazabilidadCropId(detalle.idCultivo)}
+                      style={{ marginTop: '10px', backgroundColor: 'transparent', border: '1px solid var(--color-primary)', color: 'var(--color-primary)', padding: '8px 15px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', gridColumn: '1 / -1' }}
+                  >
+                      🔍 Ver Trazabilidad
+                  </button>
                   </div>
                 </div>
               ))}
@@ -426,6 +430,14 @@ function BuyerPurchases() {
             </div>
           </div>
         </div>
+      )}
+      {trazabilidadCropId && selectedOrder && (
+          <TrazabilidadCompleta
+              cultivoId={trazabilidadCropId}
+              rol="comprador"
+              idPedidoActual={selectedOrder.id}
+              onClose={() => setTrazabilidadCropId(null)}
+          />
       )}
     </div>
   );

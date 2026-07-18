@@ -6,7 +6,6 @@ import BuyerCart from "./BuyerCart";
 import BuyerPurchases from "./BuyerPurchases";
 import BuyerNotifications from "./BuyerNotifications";
 import BuyerProfile from "./BuyerProfile";
-import { initialNotifications } from "../../data/mockBuyerData";
 import { logout } from '../../api/authService';
 
 function BuyerHome() {
@@ -20,7 +19,7 @@ function BuyerHome() {
 
   useEffect(() => {
     const checkNotifications = () => {
-      const saved = localStorage.getItem("agrolink_notifications");
+      const saved = localStorage.getItem("agrolink_notifications_comprador"); 
       let notifs = [];
       if (saved) {
         try {
@@ -28,8 +27,6 @@ function BuyerHome() {
         } catch (e) {
           console.error("Error reading notifications", e);
         }
-      } else {
-        notifs = initialNotifications;
       }
       const count = notifs.filter((n) => !n.leida).length;
       setUnreadNotificationsCount(count);

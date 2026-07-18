@@ -100,3 +100,8 @@ export const obtenerHistorialCultivo = async (idCultivo) => {
     const response = await api.get(`/cultivos/${idCultivo}/etapas`);
     return response.data;
 };
+
+export const confirmarCosecha = async (idCultivo, volumenCosechado) => {
+    const response = await api.post(`/cultivos/${idCultivo}/cosechar`, { volumenCosechado });
+    return response.data;
+};
